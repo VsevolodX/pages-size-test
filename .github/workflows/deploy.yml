@@ -1,0 +1,32 @@
+name: deploy
+on:
+  push:
+    branches: [size-test]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate site
+        run: |
+          source size.env
+          mkdir -p site
+          echo "<html><body>marker ${GITHUB_SHA} ${SIZE_MB}MB ${MODE}</body></html>" > site/index.html
+          for i in $(seq 1 $((SIZE_MB / 50))); do head -c 52428800 /dev/$([ "$MODE" = random ] && echo urandom || echo zero) > site/blob-$i.bin; done
+          du -sb site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
